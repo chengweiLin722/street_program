@@ -1,21 +1,23 @@
-streetview_crawler
+# Streetview Crawler
 
-一個用於爬取 Google Street View 資料的爬蟲工具。
+一個用於爬取 Google Street View 資料的自動化工具。
 
-使用方式
-1. 設定參數
+## 🛠️ 使用步驟
 
-在 config.py 中設定所需參數，例如 API 金鑰、半徑、步長、輸出目錄等。
+1.  **設定參數 (`config.py`)**
+    開啟 `config.py` 設定核心參數：
+    * `API_KEY`: Google Maps API 金鑰
+    * `RADIUS`: 搜尋半徑
+    * `STEP`: 步長
+    * `OUTPUT_DIR`: 輸出目錄
 
-2. 設定起始座標
+2.  **設定座標 (`main.py`)**
+    在 `main.py` 中修改起始座標變數（Latitude, Longitude）。
 
-在 main.py 中設定爬蟲的起始座標（latitude, longitude）。
+3.  **執行爬蟲**
+    在終端機執行：
+    ```bash
+    python main.py
+    ```
 
-3. 執行
-
-完成設定後，直接執行：
-
-python main.py
-
-
-即可開始爬取街景資料。
+即可開始爬取街景資料至指定目錄。
