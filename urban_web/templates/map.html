@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>街景人行道地圖</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  />
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+
+
+    .leaflet-popup-content-wrapper {
+      max-width: none !important;
+      width: auto !important;
+    }
+
+    .leaflet-popup-content {
+      max-width: none !important;
+      width: auto !important;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* 你自己的 popup 大小 */
+    .popup-container {
+      width: 600px !important;
+    }
+    .popup-img {
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-bottom: 8px;
+    }
+
+    .popup-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .popup-buttons button {
+      flex: 1 1 30%;
+      padding: 5px 6px;
+      font-size: 15px;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid #888;
+      background: #f0f0f0;
+    }
+
+    .popup-meta {
+      font-size: 16px;
+      margin-bottom: 6px;
+      line-height: 1.4em;
+    }
+
+    .legend {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(255,255,255,0.95);
+      padding: 8px 12px;
+      font-size: 13px;
+      border-radius: 6px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.25);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="map"></div>
+
+  <!-- 圖例 -->
+  <div class="legend">
+    <div><strong>人行道顏色說明</strong></div>
+    <div class="legend-item">
+      <span class="legend-color" style="background: green;"></span> ≥ 2 個角度有人行道
+    </div>
+    <div class="legend-item">
+      <span class="legend-color" style="background: red;"></span> 0 個角度有人行道
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <!-- 後端注入的 JSON -->
+  <script>
+    const POINTS = {{ points_json | safe }};
+  </script>
+
+  <script>
+    /* --- 建立一個 id -> point 的快速查表 --- */
+    const pointsById = {};
+    POINTS.forEach(p => {
+      p.currentAngle = "0";
+      p.currentMode = "raw";
+      pointsById[p.id] = p;
+    });
+
+    function getMarkerColor(p) {
+      const c = p.sidewalk_count || 0;
+      if (c >= 2) return "green";
+      return "red";
+    }
+
+    /* --- 初始化 Leaflet 地圖 --- */
+    const map = L.map("map");
+    if (POINTS.length > 0) {
+      map.setView([POINTS[0].lat, POINTS[0].lng], 15);
+    } else {
+      map.setView([25, 121.5], 12);
+    }
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19
+    }).addTo(map);
+
+
+    /* --- 改變角度時更新圖片 --- */
+    function changeAngle(pointId, angle) {
+      const p = pointsById[pointId];
+      p.currentAngle = String(angle);
+      updateImage(pointId);
+    }
+
+    /* --- Raw / Seg 切換 --- */
+    function changeMode(pointId, mode) {
+      const p = pointsById[pointId];
+      p.currentMode = mode;
+      updateImage(pointId);
+    }
+
+    /* --- 實際更新圖片元素 --- */
+    function updateImage(pointId) {
+      const p = pointsById[pointId];
+      const img = document.getElementById(`img-${pointId}`);
+      if (!img) return;
+
+      const angle = p.currentAngle;
+      const mode = p.currentMode;
+
+      const imgInfo = p.images[angle] || {};
+      let url = imgInfo[mode] || imgInfo.raw || "";
+
+      img.src = url;
+      img.alt = `${mode} ${angle}°`;
+    }
+
+    /* 必須掛到 window 讓 popup 的 onclick 可以呼叫 */
+    window.changeAngle = changeAngle;
+    window.changeMode = changeMode;
+
+
+
+    /* --- 在地圖上加 Marker + Popup --- */
+    POINTS.forEach(p => {
+      const color = getMarkerColor(p);
+
+      const marker = L.circleMarker(
+        [p.lat, p.lng],
+        {
+          radius: 6,
+          color,
+          fillColor: color,
+          fillOpacity: 0.9
+        }
+      ).addTo(map);
+
+      marker.bindTooltip(
+        `人行道角度數：${p.sidewalk_count}`,
+        { direction: "top" }
+      );
+
+      const scenes = p.scene || {};
+      const sceneText = `
+        0°: ${scenes["0"] || "-"} /
+        90°: ${scenes["90"] || "-"} /
+        180°: ${scenes["180"] || "-"} /
+        270°: ${scenes["270"] || "-"}
+      `;
+      function fmt(x) {
+          if (x === null || x === undefined || x === "") return "-";
+          return Number(x).toFixed(2);
+      }
+
+      const scores = p.score || {};
+      const scoreSummary = `
+              0°: ${fmt(scores["0"])} /
+              90°: ${fmt(scores["90"])} /
+              180°: ${fmt(scores["180"])} /
+              270°: ${fmt(scores["270"])}
+      `;
+
+      const popupHTML = `
+        <div class="popup-container">
+          <div class="popup-meta">
+            <strong>日期:</strong> ${p.date || ""}<br>
+            <strong>Scene:</strong> ${sceneText}<br>
+            <strong>Confident Score:</strong> ${scoreSummary}<br>
+            <strong>人行道計數(圖):</strong> ${p.sidewalk_count}
+          </div>
+
+          <img id="img-${p.id}" class="popup-img" src="" alt="view">
+
+          <div class="popup-buttons">
+            <button onclick="changeAngle(${p.id}, 0)">0°</button>
+            <button onclick="changeAngle(${p.id}, 90)">90°</button>
+            <button onclick="changeAngle(${p.id}, 180)">180°</button>
+            <button onclick="changeAngle(${p.id}, 270)">270°</button>
+          </div>
+
+          <div class="popup-buttons">
+            <button onclick="changeMode(${p.id}, 'raw')">原圖</button>
+            <button onclick="changeMode(${p.id}, 'seg')">分割圖</button>
+          </div>
+        </div>
+      `;
+
+      marker.bindPopup(popupHTML);
+
+      marker.on("popupopen", () => {
+        p.currentAngle = "0";
+        p.currentMode = "raw";
+        updateImage(p.id);
+      });
+    });
+  </script>
+
+</body>
+</html>

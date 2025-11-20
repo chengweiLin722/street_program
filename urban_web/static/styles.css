@@ -1,0 +1,25 @@
+body, html {
+  margin: 0;
+  padding: 0;
+}
+
+#map {
+  height: 100vh;
+  width: 100%;
+}
+
+.popup-container {
+  width: 300px;
+}
+
+.popup-img {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid #aaa;
+}
+
+.popup-buttons button {
+  padding: 4px;
+  margin: 2px;
+  font-size: 12px;
+}
