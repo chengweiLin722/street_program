@@ -1,4 +1,5 @@
 from collections import deque
+import math
 from config import (
     MAX_NODES, SAVE_IMAGES,
     STEP_METERS, LAT_MIN, LAT_MAX, LNG_MIN, LNG_MAX
@@ -23,6 +24,46 @@ def in_bounds(lat, lng):
         return False
     return True
 
+def compute_bearing(lat1, lng1, lat2, lng2):
+    lat1, lat2 = math.radians(lat1), math.radians(lat2)
+    dLng = math.radians(lng2 - lng1)
+
+    y = math.sin(dLng) * math.cos(lat2)
+    x = math.cos(lat1)*math.sin(lat2) - math.sin(lat1)*math.cos(lat2)*math.cos(dLng)
+
+    brng = math.atan2(y, x)
+    brng = math.degrees(brng)
+    return (brng + 360) % 360
+
+def directional_search_angles(p_prev, p_curr, max_turn=45):
+    if p_prev is None:
+        # 起始點：360° 全部試
+        return list(range(0, 360, 45))
+
+    lat1, lng1 = p_prev
+    lat2, lng2 = p_curr
+
+    road_dir = compute_bearing(lat1, lng1, lat2, lng2)
+
+    return [
+        (road_dir - max_turn) % 360,
+        road_dir % 360,
+        (road_dir + max_turn) % 360
+    ]
+
+def geo_distance(lat1, lng1, lat2, lng2):
+    """
+    回傳兩座標距離（公尺）
+    """
+    R = 6378137.0
+    lat1, lat2 = math.radians(lat1), math.radians(lat2)
+    lng1, lng2 = math.radians(lng1), math.radians(lng2)
+    dlat = lat2 - lat1
+    dlng = lng2 - lng1
+
+    a = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlng/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
 
 def find_start_meta(lat, lng):
     """
@@ -49,8 +90,12 @@ def crawl_tw(start_lat, start_lng):
 
     visited_pano = set()
     count = 0
+    prev_location = None
+    visited_positions = []  # list of (lat, lng)
+    DIST_THRESH = 15  # 公尺
 
-    while q and count < MAX_NODES:
+
+    while q and count < MAX_NODES:  
         meta = q.popleft()
         pano_id = meta["pano_id"]
 
@@ -62,11 +107,32 @@ def crawl_tw(start_lat, start_lng):
         lat = loc["lat"]
         lng = loc["lng"]
         date = meta.get("date", "unknown")
+            
+        # === 距離去重 ===
+        too_close = False
+        for (vlat, vlng) in visited_positions:
+            if geo_distance(lat, lng, vlat, vlng) < DIST_THRESH:
+                too_close = True
+                break
+
+        if too_close:
+            # 距離小於 15 m，視為重複點
+            continue
+
+        # === 加入 visited（新點）===
+        visited_positions.append((lat, lng))
+
+        # === 方向限制 ===
+        if prev_location is None:
+            search_angles = list(range(0, 360, 45))
+        else:
+            search_angles = directional_search_angles(prev_location, (lat, lng))
 
         if not in_bounds(lat, lng):
             continue
 
         print(f"[{count}] pano={pano_id} ({lat:.6f}, {lng:.6f}) date={date}")
+        
 
         # 下載 / 紀錄 4 個方向
         imgs = {}
@@ -84,26 +150,15 @@ def crawl_tw(start_lat, start_lng):
         count += 1
 
         # === 產生鄰居候選點（用距離步進，而不是 links） ===
-        # 8 個方向：每個 STEP_METERS
-        for neighbor_heading in range(0, 360, 45):
-            nlat, nlng = offset_point(lat, lng, STEP_METERS, neighbor_heading)
+        for hd in search_angles:
+            nlat, nlng = offset_point(lat, lng, STEP_METERS, hd)
 
-            if not in_bounds(nlat, nlng):
-                continue
-
-            # 在這個新位置附近找最近的街景 pano
             nmeta = streetview_metadata_by_location(nlat, nlng)
-            if nmeta.get("status") != "OK":
-                continue
+            if nmeta.get("status") == "OK":
+                npano = nmeta["pano_id"]
+                if npano not in visited_pano:
+                    q.append(nmeta)
+        prev_location = (lat, lng)
 
-            npano = nmeta.get("pano_id")
-            if not npano:
-                continue
-
-            if npano in visited_pano:
-                continue
-
-            # 放進 BFS queue
-            q.append(nmeta)
 
     print("BFS 完成，共處理節點數 =", count)
