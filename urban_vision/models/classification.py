@@ -11,7 +11,7 @@ class SceneClassifier:
         model_dir: 模型與標籤存放路徑
         device: "cpu" 或 "cuda"
         """
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or ("cpu")
         os.makedirs(model_dir, exist_ok=True)
 
         # ------------------------

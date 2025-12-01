@@ -1,4 +1,5 @@
 import torch
-print("Torch version:", torch.__version__)
-print("CUDA available:", torch.cuda.is_available())
-print("Torch loaded successfully ✅")
+print("torch:", torch.__version__)
+print("cuda available:", torch.cuda.is_available())
+print("device count:", torch.cuda.device_count())
+print("device name:", torch.cuda.get_device_name(0))

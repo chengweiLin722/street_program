@@ -7,8 +7,10 @@ from io import BytesIO
 
 from models.segmentation import SegformerB2Cityscapes
 from models.classification import SceneClassifier
+from models.vlm_qwen import SidewalkQwenVLM
 from utils.visualize import visualize_segmentation
 from utils.analyze_sidewalk import sidewalk_confidence
+
 
 DB_PATH = r"C:\Homework\urban_vision\streetview.db"
 IMAGE_OUTPUT_DIR = r"C:\Homework\urban_vision\output"
@@ -62,6 +64,29 @@ def update_point_to_db(pid, angle, scene, sidewalk, score, raw_path, seg_path):
     conn.commit()
     conn.close()
 
+def update_vlm_to_db(pid, vlm_result):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE streetview_points
+        SET 
+            vlm_sidewalk = ?,
+            vlm_scene_type = ?,
+            vlm_confidence = ?,
+            vlm_reason = ?
+        WHERE id = ?
+    """, (
+        vlm_result["sidewalk_exists"],
+        vlm_result["scene_type"],
+        vlm_result["sidewalk_confidence"],
+        vlm_result["reason"],
+        pid
+    ))
+
+    conn.commit()
+    conn.close()
+
 
 def mark_processed(pid):
     conn = sqlite3.connect(DB_PATH)
@@ -77,7 +102,7 @@ def mark_processed(pid):
     conn.close()
 
 
-def process_point(row, seg_model, cls_model):
+def process_point(row, seg_model, cls_model, vlm_model):
     pid = row["id"]
     print(f"\n⚡ 正在處理 point id={pid}")
 
@@ -125,19 +150,35 @@ def process_point(row, seg_model, cls_model):
             seg_output
         )
 
+    print("🧠 使用 Qwen-VL 進行四視角語義判斷 ...")
+    image_paths = []
+    for angle in ANGLES:
+        raw_output = os.path.join(IMAGE_OUTPUT_DIR, f"{pid}_raw_{angle}.png")
+        if os.path.exists(raw_output):
+            image_paths.append(raw_output)
+        else:
+            image_paths.append(None)
+
+    vlm_result = vlm_model.evaluate_images(image_paths)
+    print("   VLM 結果：", vlm_result)
+
+    update_vlm_to_db(pid, vlm_result)
+
     mark_processed(pid)
+
 
 
 def main():
     print("📌 載入模型中 ...")
     seg_model = SegformerB2Cityscapes()
     cls_model = SceneClassifier()
+    vlm_model = SidewalkQwenVLM()
 
     points = load_unprocessed_points()
     print(f"📌 一共找到 {len(points)} 個未處理座標點")
 
     for row in points:
-        process_point(row, seg_model, cls_model)
+        process_point(row, seg_model, cls_model, vlm_model)
 
     print("\n🎉 全部處理完成！")
 

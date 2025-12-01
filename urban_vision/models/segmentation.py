@@ -5,7 +5,7 @@ from transformers import SegformerImageProcessor, SegformerForSemanticSegmentati
 
 class SegformerB2Cityscapes:
     def __init__(self):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = "cpu"
         print("[SegFormer-B2] device:", self.device)
 
         # 載入 NVIDIA 官方 Cityscapes SegFormer-B2
