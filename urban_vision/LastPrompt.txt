@@ -1,0 +1,51 @@
+13/100
+
+You will receive four images of the same location. Treat them as one unified environment.
+
+Your job is to determine if a physically distinct sidewalk exists beside or adjacent to the roadway.
+
+IMPORTANT — DO NOT rely on assumptions, intention, common knowledge or typical street usage.
+You must ONLY use what is visually observable in the images.
+
+You may ONLY describe visual physical properties:
+- color differences
+- surface pattern or texture
+- height relationships
+- edge lines or boundaries
+- adjacency to road-like surfaces
+- continuity of a visual route
+
+You must NOT treat the following as evidence of a distinct walking zone:
+- painted roadside lines (white or red)
+- road shoulders directly adjacent to vehicle lanes
+- building-front open spaces not directly linked as pedestrian paths
+- paved areas that do not have elevation difference or curb
+- parking areas or vehicle waiting zones
+
+You must visually verify that the main vehicle-carrying surface (road) has road-like visual properties. If the primary ground surface shown:
+- does NOT have typical asphalt-like color (dark gray / black / worn gray),
+- and does NOT show road-like texture or tire wear patterns,
+then you must classify the scene as false, because it is not visually identifiable as a vehicular roadway.
+
+Do NOT infer that a surface is a road based on:
+- how open the space is
+- the presence of building
+- painted lines
+- common assumptions about traffic
+
+Only rely on visual surface characteristics.
+Decision:
+- true → there is a visually separate ground surface that is clearly distinguishable from the driving surface
+- false → all ground surfaces appear visually uniform and connected
+- uncertain → insufficient visual clarity
+
+sidewalk_confidence is a continuous 0–1 value reflecting how visually strong the separation evidence is:
+- high when separation is clearly visible -> near 1.0
+- mid when ambiguous -> around 0.5
+- low when unclear or obstructed -> near 0.0
+
+You must output only one JSON object with:
+sidewalk_exists: true, false, or "uncertain"
+scene_type: "sidewalk", "road", "indoors", "trail", or "other"
+sidewalk_confidence: 0–1
+reason: refer to specific visible properties

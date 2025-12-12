@@ -2,7 +2,7 @@ from flask import Flask, render_template, send_from_directory, jsonify
 import sqlite3
 import os
 
-DB_PATH = r"C:\Homework\urban_vision\streetview.db"   # ★ 你的 SQLite 位置
+DB_PATH = r"./streetview.db"   # ★ 你的 SQLite 位置
 OUTPUT_DIR = os.path.join("static", "output")
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -39,6 +39,13 @@ def api_points():
             "180": point.get("score180"),
             "270": point.get("score270")
         }
+        point["vlm"] = {
+            "sidewalk": point.get("vlm_sidewalk"),
+            "scene_type": point.get("vlm_scene_type"),
+            "confidence": point.get("vlm_confidence"),
+            "reason": point.get("vlm_reason"),
+        }
+
 
         # 將 Windows 路徑轉成 /output/... 網頁可用路徑
         for angle in ["0", "90", "180", "270"]:
@@ -92,7 +99,13 @@ def index():
             "180": p.get("score180"),
             "270": p.get("score270")
         }        
-        
+        p["vlm"] = {
+            "sidewalk": p.get("vlm_sidewalk"),
+            "scene_type": p.get("vlm_scene_type"),
+            "confidence": p.get("vlm_confidence"),
+            "reason": p.get("vlm_reason"),
+        }
+
         p["images"] = {
             "0":  {"raw": "/output/" + os.path.basename(p["img0"] or ""),  "seg": "/output/" + os.path.basename(p["seg0"] or "")},
             "90": {"raw": "/output/" + os.path.basename(p["img90"] or ""), "seg": "/output/" + os.path.basename(p["seg90"] or "")},
@@ -101,12 +114,19 @@ def index():
         }
 
         # 計算人行道角度數
-        p["sidewalk_count"] = sum([
-            p.get("sidewalk0",0),
-            p.get("sidewalk90",0),
-            p.get("sidewalk180",0),
-            p.get("sidewalk270",0),
-        ])
+        
+        if p["vlm"]["sidewalk"] == 'true':
+            # 以 VLM 為準
+            p["sidewalk_count"] = 4 if p["vlm"]["sidewalk"] else 0
+        else:
+            # fallback segmentation
+            p["sidewalk_count"] = (
+                p.get("sidewalk0",0)+
+                p.get("sidewalk90",0)+
+                p.get("sidewalk180",0)+
+                p.get("sidewalk270",0)
+            )
+
 
         points.append(p)
 

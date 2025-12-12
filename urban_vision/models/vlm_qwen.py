@@ -41,32 +41,49 @@ class SidewalkQwenVLM:
 
     def _build_prompt(self) -> str:
         prompt = """
-You will receive four images of the same location from different angles and must judge them collectively as one continuous scene.
+You are a neutral visual observer who judges solely based on the images. Your task is to determine, using four images from different angles, whether a visually distinguishable sidewalk exists at this location.
+You may only rely on clearly visible physical features in the images. You must not infer purpose or usage, and must not rely on common knowledge, assumptions, or social understanding about how surfaces are typically used.
 
-Determine if a physically separated pedestrian walkway exists.
+Determine whether there is a visually identifiable sidewalk based on overall physical characteristics, such as:
+1. A surface wide enough and continuous enough to function as a pedestrian path.
+2. A clear visual distinction from the roadway, such as:
+  - height difference
+  - different material or texture
+  - different color
+  - a visible boundary between surfaces
+3. A linear or directionally consistent paved area that visually aligns as a walking route.
 
-Rules:
-- Base judgment strictly on visible features.
-- Look only for physical separation such as height change, curb, edge boundary, or clearly different pavement.
-- Do not infer intent or usage.
+If these primary characteristics are not present, the location should generally be classified as no sidewalk.
+
+These areas often are not sidewalks and should not be classified as sidewalks unless the primary criteria are clearly met:
+- building-front open spaces
+- covered walkways or arcades
+- road shoulders without visual separation
+- roadside painted lines (white/yellow/red)
+- planters, fences, or narrow edge strips
+- parking spaces or areas occupied by vehicles
+
+If these secondary cues appear alone without meeting the primary criteria, do not classify the area as a sidewalk.
+
+Secondary cues should only adjust interpretation—not force a decision.
 
 Decision:
-- true → clear separation visible
-- false → ground visually continuous with road
-- uncertain → insufficient visual proof
+If a sidewalk clearly exists → true
+If no sidewalk exists → false
+If the visual information is insufficient → uncertain
 
-sidewalk_confidence represents how visually strong the separation evidence is:
-- high (0.8–1.0) when separation is clearly visible
-- mid (0.4–0.7) when ambiguous
-- low (0–0.3) when unclear or obstructed
+If no recognizable roadway exists but a continuous walking surface is present, classify scene_type as "trail", not "sidewalk".
 
-If unsure, prefer "false" over "true".
+sidewalk_confidence is a continuous value from 0 to 1:
+clear evidence of sidewalk → close to 0.8
+uncertain → around 0.5
+clear evidence of no sidewalk → close to 0.2
 
-You must output only one JSON object with:
-- sidewalk_exists: true, false, or "uncertain"  
-- scene_type: "sidewalk", "road", "indoors", "trail", or "other"  
-- sidewalk_confidence: 0–1  
-- reason: refer to specific visible properties (ex: edge line, elevation discontinuity, barrier presence)
+The final output must be a JSON object containing:
+sidewalk_exists: true, false, or "uncertain"
+scene_type: "sidewalk", "road", "indoors", "trail", or "other"
+sidewalk_confidence: 0–1
+reason (referencing specific visible features)
 """
         return prompt.strip()
 

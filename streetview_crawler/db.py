@@ -45,6 +45,12 @@ def init_db():
         score180 REAL,
         score270 REAL,
 
+        --vlm prompt
+        vlm_sidewalk TEXT,
+        vlm_scene_type TEXT,
+        vlm_confidence REAL,
+        vlm_reason TEXT,
+
         -- 是否已做完 segmentation/type 判斷
         processed INTEGER DEFAULT 0
     );
@@ -67,9 +73,11 @@ def insert_point(conn, meta, imgs):
      seg0, seg90, seg180, seg270,
      sidewalk0, sidewalk90, sidewalk180, sidewalk270,
      score0, score90, score180, score270,
+     vlm_sidewalk, vlm_scene_type, vlm_confidence, vlm_reason,
      processed)
     VALUES (?, ?, ?, ?,
             ?, ?, ?, ?,
+            NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,

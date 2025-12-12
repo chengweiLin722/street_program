@@ -119,8 +119,12 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
   <!-- 後端注入的 JSON -->
+  <script type="application/json" id="points-json">
+    {{ points_json | tojson }}
+  </script>
+
   <script>
-    const POINTS = {{ points_json | safe }};
+    let POINTS = JSON.parse(document.getElementById("points-json").textContent);
   </script>
 
   <script>
@@ -133,10 +137,14 @@
     });
 
     function getMarkerColor(p) {
-      const c = p.sidewalk_count || 0;
-      if (c >= 2) return "green";
-      return "red";
+        if (p.vlm && p.vlm.sidewalk === "true") {
+            return "green";
+        }
+        else{
+            return "red";
+        }
     }
+
 
     /* --- 初始化 Leaflet 地圖 --- */
     const map = L.map("map");
@@ -232,24 +240,35 @@
             <strong>日期:</strong> ${p.date || ""}<br>
             <strong>Scene:</strong> ${sceneText}<br>
             <strong>Confident Score:</strong> ${scoreSummary}<br>
-            <strong>人行道計數(圖):</strong> ${p.sidewalk_count}
-          </div>
+            <strong>人行道計數(圖):</strong> ${p.sidewalk_count}<br><br>
 
-          <img id="img-${p.id}" class="popup-img" src="" alt="view">
+            <strong>VLM 判斷:</strong>
+            ${(p.vlm && p.vlm.sidewalk === "true") ? "✔ 有" :
+              (p.vlm && p.vlm.sidewalk === "false") ? "❌ 無" : "無資料"}<br>
 
-          <div class="popup-buttons">
-            <button onclick="changeAngle(${p.id}, 0)">0°</button>
-            <button onclick="changeAngle(${p.id}, 90)">90°</button>
-            <button onclick="changeAngle(${p.id}, 180)">180°</button>
-            <button onclick="changeAngle(${p.id}, 270)">270°</button>
-          </div>
+            <strong>VLM 場景:</strong>
+            ${(p.vlm && p.vlm.scene_type) ? p.vlm.scene_type : "-"}<br>
 
-          <div class="popup-buttons">
-            <button onclick="changeMode(${p.id}, 'raw')">原圖</button>
-            <button onclick="changeMode(${p.id}, 'seg')">分割圖</button>
+            <strong>VLM 信心:</strong>
+            ${(p.vlm && p.vlm.confidence) ? Number(p.vlm.confidence).toFixed(2) : "0"}<br>
+
+            <strong>VLM 理由:</strong><br>
+            ${(p.vlm && p.vlm.reason) ? p.vlm.reason : "-"}<br>
+
+            <img id="img-${p.id}" class="popup-img" src="" alt="view"> 
+            <div class="popup-buttons"> 
+              <button onclick="changeAngle(${p.id}, 0)">0°</button> 
+              <button onclick="changeAngle(${p.id}, 90)">90°</button> <button onclick="changeAngle(${p.id}, 180)">180°</button> 
+              <button onclick="changeAngle(${p.id}, 270)">270°</button> 
+              </div> 
+              
+              <div class="popup-buttons"> 
+                <button onclick="changeMode(${p.id}, 'raw')">原圖</button> 
+                <button onclick="changeMode(${p.id}, 'seg')">分割圖</button> </div>
+                </div>
           </div>
-        </div>
-      `;
+      `
+
 
       marker.bindPopup(popupHTML);
 

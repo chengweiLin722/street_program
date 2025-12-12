@@ -92,7 +92,7 @@ def crawl_tw(start_lat, start_lng):
     count = 0
     prev_location = None
     visited_positions = []  # list of (lat, lng)
-    DIST_THRESH = 15  # 公尺
+    DIST_THRESH = 25  # 公尺
 
 
     while q and count < MAX_NODES:  
@@ -116,7 +116,7 @@ def crawl_tw(start_lat, start_lng):
                 break
 
         if too_close:
-            # 距離小於 15 m，視為重複點
+            # 距離小於 25 m，視為重複點
             continue
 
         # === 加入 visited（新點）===

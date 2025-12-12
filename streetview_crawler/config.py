@@ -1,7 +1,7 @@
 API_KEY = "AIzaSyC20fpv_I0gAxcT4mt3pYGza5YE3Fp7W34"
 
 # BFS 最大節點數，避免跑太瘋
-MAX_NODES = 50
+MAX_NODES = 100
 
 # 是否下載圖片（True=下載到本地, False=只存URL）
 SAVE_IMAGES = False

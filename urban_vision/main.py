@@ -3,7 +3,7 @@ import os
 from PIL import Image
 import requests
 from io import BytesIO
-
+import numpy as np
 
 from models.segmentation import SegformerB2Cityscapes
 from models.classification import SceneClassifier
@@ -11,11 +11,11 @@ from models.vlm_qwen import SidewalkQwenVLM
 from utils.visualize import visualize_segmentation
 from utils.analyze_sidewalk import sidewalk_confidence
 
-
 DB_PATH = r"C:\Homework\urban_vision\streetview.db"
 IMAGE_OUTPUT_DIR = r"C:\Homework\urban_vision\output"
 
 ANGLES = ["0", "90", "180", "270"]
+
 
 # 產出路徑，如果路徑不存在就建立
 os.makedirs(IMAGE_OUTPUT_DIR, exist_ok=True)
@@ -106,6 +106,8 @@ def process_point(row, seg_model, cls_model, vlm_model):
     pid = row["id"]
     print(f"\n⚡ 正在處理 point id={pid}")
 
+    scores = {}   # <--- 新增，用來存每張角度的分數
+
     for angle in ANGLES:
 
         raw_url = row[f"img{angle}"]
@@ -117,7 +119,6 @@ def process_point(row, seg_model, cls_model, vlm_model):
         if image is None:
             continue
 
-
         # Scene 分類
         scene = cls_model.classify(image)
 
@@ -125,7 +126,9 @@ def process_point(row, seg_model, cls_model, vlm_model):
         mask = seg_model.segment(image)
 
         # Sidewalk mask
-        has_sidewalk, score, debug = sidewalk_confidence(mask)
+        has_sidewalk, score, debug = sidewalk_confidence(mask, image)
+
+        scores[angle] = score   # <--- 新增
 
         print(f" - angle={angle}, scene={scene}, sidewalk={has_sidewalk}, score={score:.4f}")
 
@@ -133,13 +136,9 @@ def process_point(row, seg_model, cls_model, vlm_model):
         raw_output = os.path.join(IMAGE_OUTPUT_DIR, f"{pid}_raw_{angle}.png")
         seg_output = os.path.join(IMAGE_OUTPUT_DIR, f"{pid}_seg_{angle}.png")
 
-        # 存 raw
         image.save(raw_output)
-
-        # 存 seg（彩色可視化）
         vis = visualize_segmentation(image, mask, scene, seg_output, alpha=0.5)
 
-        # ========== 寫入 DB ==========
         update_point_to_db(
             pid,
             angle,
@@ -150,21 +149,26 @@ def process_point(row, seg_model, cls_model, vlm_model):
             seg_output
         )
 
-    print("🧠 使用 Qwen-VL 進行四視角語義判斷 ...")
-    image_paths = []
-    for angle in ANGLES:
-        raw_output = os.path.join(IMAGE_OUTPUT_DIR, f"{pid}_raw_{angle}.png")
-        if os.path.exists(raw_output):
-            image_paths.append(raw_output)
-        else:
-            image_paths.append(None)
 
+    print("🧠 使用 Qwen-VL 進行四視角語義判斷 ...")
+
+    # 根據 sidewalk score 排序圖片
+    sorted_angles = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
+
+    print(f"📸 排序後圖片順序（高→低）： {sorted_angles}")
+
+    image_paths = []
+    for angle in sorted_angles:
+        raw_output = os.path.join(IMAGE_OUTPUT_DIR, f"{pid}_raw_{angle}.png")
+        image_paths.append(raw_output if os.path.exists(raw_output) else None)
+
+    # 呼叫 VLM
     vlm_result = vlm_model.evaluate_images(image_paths)
     print("   VLM 結果：", vlm_result)
 
     update_vlm_to_db(pid, vlm_result)
-
     mark_processed(pid)
+
 
 
 
@@ -173,6 +177,7 @@ def main():
     seg_model = SegformerB2Cityscapes()
     cls_model = SceneClassifier()
     vlm_model = SidewalkQwenVLM()
+
 
     points = load_unprocessed_points()
     print(f"📌 一共找到 {len(points)} 個未處理座標點")
