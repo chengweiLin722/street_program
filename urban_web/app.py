@@ -2,7 +2,7 @@ from flask import Flask, render_template, send_from_directory, jsonify
 import sqlite3
 import os
 
-DB_PATH = r"./streetview.db"   # ★ 你的 SQLite 位置
+DB_PATH = r"C:\Homework\street_program\urban_web\streetview.db"   # ★ 你的 SQLite 位置
 OUTPUT_DIR = os.path.join("static", "output")
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
