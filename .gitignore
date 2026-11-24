@@ -1,0 +1,25 @@
+#python
+__pycache__/
+*.pyc 
+venv/
+.venv/
+
+# env
+.env
+
+# OS
+.DS_Store
+.vscode/
+
+# model weights
+*.pth 
+*.pth.tar
+
+# generate pipeline outputs
+urban_web/static/output/*
+!urban_web/static/output/.gitkeep
+urban_vision/street_segmented*.png
+
+# SQLite
+*.db-wal
+*.db-shm
